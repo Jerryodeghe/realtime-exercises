@@ -34,6 +34,30 @@ const server = http2.createSecureServer({
  * Code goes here
  *
  */
+server.on("stream", (stream, headers) => {
+  const path = headers[":path"];
+  const method = headers[":method"];
+
+  //streams open for every request from the browser
+  if (path === "/msgs" && method === "GET") {
+    // reply with 200 ok encoding
+    console.log("connected to stream "+stream.id) 
+    stream.respond({
+      ":status": 200,
+      "content-type": "text/plain: charset=utf-8"
+    })
+
+    // write first response
+    stream.write(JSON.stringify({ msg: getMsgs() }))
+    //user connected
+    connections.push(stream)
+    //if connection close
+    stream.on("close", () => {
+      console.log("Disconnected "+stream.id)
+      connections = connections.filter(conn => conn !== stream)
+    })
+  }
+})
 
 server.on("request", async (req, res) => {
   const path = req.headers[":path"];
@@ -58,6 +82,17 @@ server.on("request", async (req, res) => {
      * some code goes here
      *
      */
+    msg.push({
+      user,
+      text,
+      time: Date.now()
+    })
+
+    res.end()
+
+    connections.forEach(stream => {
+      stream.write(JSON.stringify({msg: getMsgs()}))
+    })
   }
 });
 
